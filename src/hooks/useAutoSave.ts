@@ -35,6 +35,12 @@ export function useAutoSave({ nodes, edges, isValid }: UseAutoSaveParams): UseAu
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+
+  nodesRef.current = nodes;
+  edgesRef.current = edges;
+
   useEffect(() => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -51,8 +57,8 @@ export function useAutoSave({ nodes, edges, isValid }: UseAutoSaveParams): UseAu
     saveTimeoutRef.current = setTimeout(() => {
       try {
         const workflowData: SavedWorkflowData = {
-          nodes,
-          edges,
+          nodes: nodesRef.current,
+          edges: edgesRef.current,
           timestamp: new Date().toISOString(),
         };
 
@@ -70,11 +76,8 @@ export function useAutoSave({ nodes, edges, isValid }: UseAutoSaveParams): UseAu
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [nodes, edges, isValid]);
+  }, [isValid]);
 
-  /**
-   * Clears the saved workflow from localStorage
-   */
   const clearSaved = useCallback(() => {
     try {
       localStorage.removeItem(AUTOSAVE_KEY);

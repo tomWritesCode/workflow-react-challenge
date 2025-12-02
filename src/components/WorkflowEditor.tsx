@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef, useEffect } from 'react';
+import React, { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -39,6 +39,8 @@ import { ApiNode } from './nodes/ApiNode';
 import { EndNode } from './nodes/EndNode';
 import { BlockPanel } from './BlockPanel';
 import { validateWorkflow, ValidationError } from '../utils/validation';
+import { useAutoSave } from '../hooks/useAutoSave';
+import { SaveStatusIndicator } from './SaveStatusIndicator';
 
 import type { FormNodeData } from './nodes/FormNode';
 import type { ApiNodeData } from './nodes/ApiNode';
@@ -113,16 +115,27 @@ export const WorkflowEditor: React.FC = () => {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [isWorkflowValid, setIsWorkflowValid] = useState(false);
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
+
+  const nodesJson = useMemo(() => JSON.stringify(nodes), [nodes]);
+  const edgesJson = useMemo(() => JSON.stringify(edges), [edges]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       const result = validateWorkflow(nodes, edges);
       setValidationErrors(result.errors);
+      setIsWorkflowValid(result.isValid);
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [nodes, edges]);
+  }, [nodesJson, edgesJson]);
+
+  const { saveStatus, lastSaved, clearSaved } = useAutoSave({
+    nodes,
+    edges,
+    isValid: isWorkflowValid,
+  });
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -326,10 +339,15 @@ export const WorkflowEditor: React.FC = () => {
         <Flex flexGrow="1" justify="between" align="center">
           <Heading as="h2">Workflow Editor</Heading>
 
-          <Button onClick={handleSave}>
-            <Save size={16} />
-            Save Workflow
-          </Button>
+          <Flex gap="3" align="center">
+            {(nodes.length > 0 || edges.length > 0) && (
+              <SaveStatusIndicator saveStatus={saveStatus} lastSaved={lastSaved} />
+            )}
+            <Button onClick={handleSave}>
+              <Save size={16} />
+              Save Workflow
+            </Button>
+          </Flex>
         </Flex>
       </Card>
 
