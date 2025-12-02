@@ -1,167 +1,30 @@
-# Workflow Builder - Frontend Challenge
+# Implementation Overview
 
-A visual workflow builder application where users create workflows with different node types. Your task is to implement **form validation** and **auto-save functionality**.
+This implementation completes both required parts and a planning strategy around how I would tackle the optional piece if not limited by time.
 
-## Quick Start
+## Key Technical Decisions
 
-```bash
-npm install
-npm run dev
-# Open http://localhost:5173
-```
+1. Validation architecture
 
-**Prerequisites:** Node.js 18+
+- Modularity for validation functions based on each node type feeding into an overall workflow validation based on each individual node.
+- Helper functions for human readability for things like `isEmpty()` or `isValidUrl()`
+- Graph traversal to make sure flows are reachable from the start node + no orphan nodes can exist.
+- Addition of structure validation that a start node connected to an end node can not be considered valid.
 
-## Challenge Overview
+1. Auto-Save Implementation
 
-### What's Already Built
+- Reference to ISO 8601 timestamp format was put in based on the other note of working with DB timestamps and being able to compare a locally stored workflow to something found on the database in a future iteration. In a production environment with backend persistence, the restore dialog would compare the localStorage timestamp with a server timestamp to detect version conflicts and inform the user if a newer version exists elsewhere. This is a common pattern I've seen in collaborative editing tools and would be worth discussing with product/design.
+- Dialog and save status use dayjs and the relativeTime plugin for giving the user a reference to when the save happened.
 
-- Visual workflow canvas with drag-and-drop
-- 5 node types: Start, Form, Conditional, API, End
-- Node configuration panel
-- Delete nodes (X button or Delete/Backspace key)
-- Connect nodes with edges
+1. Bonus conditional autocomplete.
+I didn't get around to implementing it due to time constraints but have planned out an approach below, also structured in [This planning pull request](https://github.com/tomWritesCode/workflow-react-challenge/pull/3):
 
-### What You'll Build
+**Technical approach**  
+Building a new util function for graph traversal to identify valid, reachable nodes upstream of the conditional node. We have a pattern for the graph traversal in the validation file.
 
-**Part 1: Form Validation**
-- Validate all node configuration fields
-- Validate workflow structure (one Start block, one End block, proper routing)
-- Display inline errors in the editor panel
-- Update ValidationPanel (left side) to show all errors
+**Autocomplete component**  
+Radix-ui does not have a native solution for an autocomplete component but Shadcn which is a component library built on top of Radix-ui does have a [Combobox component](http://ui.shadcn.com/docs/components/combobox) which is a composition of other components to give the functionality which would be the basis for inspiration of how to work with Radix to achieve the desired outcome.
 
-**Part 2: Auto-Save**
-- Auto-save to localStorage when workflow is valid
-- Debounce saves (2 seconds after changes)
-- Show save status indicator
-- Restore workflow on app reload with user prompt
+If we were working on keeping everything as close to Radix-ui as possible I would be making a component that used the TextField component as well as the DropdownMenu. This would give us the accessibility must haves with TextField having proper ARIA labels as well as the DropdownMenu component having keyboard support.
 
-**Time Estimate:** 3 hours
-
-## Requirements
-
-### Validation Rules
-
-#### Workflow-Level Validation
-
-**Workflow Structure**
-- Must contain exactly one Start block
-- Must contain exactly one End block
-- All nodes must be properly connected (all routes validated)
-
-#### Node-Level Validation
-
-**Form Node**
-- Custom Name: Required, min 3 characters
-- Field name: Required, alphanumeric only (no spaces), min 2 characters
-- Field label: Required, min 2 characters
-
-**Conditional Node**
-- Custom Name: Required, min 3 characters
-- Field to Evaluate: Required
-- Operator: Required
-- Value: Required (except when operator is `is_empty`)
-
-**API Node**
-- URL: Required, must start with http:// or https://
-- Method: Required (GET, POST, PUT, DELETE)
-
-### Auto-Save Behavior
-
-1. Only save when all nodes pass validation AND workflow structure is valid
-2. Wait 2 seconds after last change before saving
-3. Store to `localStorage` with key `workflow-autosave`
-4. Show save status (saving/saved/error)
-5. On app load, prompt user to restore or discard saved workflow
-
-## Deliverables
-
-1. **Validation utility** (`src/utils/`) - Validate node fields and workflow structure (one Start, one End, proper routing)
-2. **Auto-save hook** (`src/hooks/`) - Handle debouncing and localStorage
-3. **Updated NodeEditor** - Display validation errors inline
-4. **Save status display** - Show save state in UI
-5. **Restore dialog** - Use Radix UI AlertDialog to prompt on load
-6. **ValidationPanel update** - Display real validation errors from all nodes and workflow-level errors
-
-## Tech Stack
-
-- **React 18** + TypeScript
-- **Radix UI Themes** - Component library ([docs](https://www.radix-ui.com/themes/docs))
-- **ReactFlow** - Canvas/node graph library
-- **Vite** - Build tool
-- **Lucide React** - Icons
-
-## Project Structure
-
-```
-src/
-├── components/
-│   ├── nodes/              # StartNode, FormNode, ConditionalNode, ApiNode, EndNode
-│   ├── WorkflowEditor.tsx  # Main editor component
-│   ├── BlockPanel.tsx      # Left panel with blocks
-│   └── ValidationPanel.tsx # Validation errors display
-├── hooks/                  # CREATE: Auto-save hook
-├── utils/                  # CREATE: Validation utilities
-├── pages/                  # Index, NotFound
-└── main.tsx               # Entry point
-```
-
-## Technical Requirements
-
-**TypeScript**
-- Strict typing (no `any`)
-- Use proper interfaces from node components
-
-**Code Quality**
-- Follow existing patterns (see `WorkflowEditor.tsx`)
-- Named exports only (no default exports)
-- Use Radix UI components for all UI
-
-**Performance**
-- Debounce validation: 300ms recommended
-- Debounce auto-save: 2000ms required
-
-## Evaluation Criteria
-
-- **Functionality** - Validation and auto-save work correctly
-- **Code Quality** - Clean, maintainable, follows patterns
-- **User Experience** - Clear errors and feedback
-- **Technical** - Efficient debouncing and error handling
-
-## Helpful Tips
-
-1. Start with validation, then add auto-save
-2. Check existing node files for data structure types
-3. Use `updateNodeData` in WorkflowEditor to update node properties
-4. ReactFlow hooks: `useNodesState`, `useEdgesState`
-5. Handle localStorage errors gracefully
-6. Test incrementally as you build
-
-## Available Radix UI Components
-
-Already imported and ready to use:
-- `Box`, `Flex`, `Text`, `Heading`
-- `Button`, `IconButton`, `Card`
-- `TextField`, `Select`, `Checkbox`, `Badge`
-- `AlertDialog`, `Callout`, `Separator`
-
-## Submission Checklist
-
-- [ ] No TypeScript errors
-- [ ] No console errors
-- [ ] All node-level validation rules implemented
-- [ ] Workflow-level validation implemented (one Start, one End, proper routing)
-- [ ] Auto-save works with 2-second debounce
-- [ ] Workflow restores from localStorage
-- [ ] ValidationPanel shows real validation errors
-- [ ] Code follows existing patterns
-
-## Bonus (Optional)
-
-- Field name autocomplete for conditional nodes
-
----
-
-**Reference:** Check `EXAMPLES.md` for code patterns and `src/components/nodes/` for data structures.
-
-Good luck!
+This component while containing some complexity could be reused and is a valid example of effort to reward for a common use case throughout applications like this.
