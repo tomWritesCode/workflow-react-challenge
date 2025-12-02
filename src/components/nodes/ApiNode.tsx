@@ -57,11 +57,11 @@ export const ApiNode: React.FC<ApiNodeProps> = ({ data, id }) => {
           style={{
             top: '-8px',
             left: '-8px',
-            width: '24px',
-            height: '24px',
+            width: '20px',
+            height: '20px',
           }}
         >
-          <AlertCircle fill="var(--red-9)" size={24} />
+          <AlertCircle fill="var(--red-9)" size={20} />
         </Box>
       )}
 
