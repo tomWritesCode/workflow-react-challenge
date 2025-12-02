@@ -39,8 +39,9 @@ import { ApiNode } from './nodes/ApiNode';
 import { EndNode } from './nodes/EndNode';
 import { BlockPanel } from './BlockPanel';
 import { validateWorkflow, ValidationError } from '../utils/validation';
-import { useAutoSave } from '../hooks/useAutoSave';
+import { useAutoSave, loadSavedWorkflow } from '../hooks/useAutoSave';
 import { SaveStatusIndicator } from './SaveStatusIndicator';
+import { RestoreWorkflowDialog } from './RestoreWorkflowDialog';
 
 import type { FormNodeData } from './nodes/FormNode';
 import type { ApiNodeData } from './nodes/ApiNode';
@@ -112,11 +113,22 @@ export const WorkflowEditor: React.FC = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showRestoreDialog, setShowRestoreDialog] = useState(false);
+  const [savedWorkflowData, setSavedWorkflowData] =
+    useState<ReturnType<typeof loadSavedWorkflow>>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [isWorkflowValid, setIsWorkflowValid] = useState(false);
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
+
+  useEffect(() => {
+    const saved = loadSavedWorkflow();
+    if (saved) {
+      setSavedWorkflowData(saved);
+      setShowRestoreDialog(true);
+    }
+  }, []);
 
   const nodesJson = useMemo(() => JSON.stringify(nodes), [nodes]);
   const edgesJson = useMemo(() => JSON.stringify(edges), [edges]);
@@ -333,6 +345,21 @@ export const WorkflowEditor: React.FC = () => {
     setShowSaveDialog(true);
   };
 
+  const handleRestoreWorkflow = useCallback(() => {
+    if (savedWorkflowData) {
+      setNodes(savedWorkflowData.nodes);
+      setEdges(savedWorkflowData.edges);
+      setShowRestoreDialog(false);
+      setSavedWorkflowData(null);
+    }
+  }, [savedWorkflowData, setNodes, setEdges]);
+
+  const handleDiscardWorkflow = useCallback(() => {
+    clearSaved();
+    setShowRestoreDialog(false);
+    setSavedWorkflowData(null);
+  }, [clearSaved]);
+
   return (
     <Flex minHeight="100vh" direction="column" style={{ width: '100%' }}>
       <Card m="4" mb="0">
@@ -448,6 +475,14 @@ export const WorkflowEditor: React.FC = () => {
           </Flex>
         </AlertDialog.Content>
       </AlertDialog.Root>
+
+      <RestoreWorkflowDialog
+        open={showRestoreDialog}
+        workflowData={savedWorkflowData}
+        onRestore={handleRestoreWorkflow}
+        onDiscard={handleDiscardWorkflow}
+        onOpenChange={setShowRestoreDialog}
+      />
     </Flex>
   );
 };
