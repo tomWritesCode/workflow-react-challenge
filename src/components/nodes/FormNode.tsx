@@ -1,6 +1,6 @@
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { FileText, X } from 'lucide-react';
+import { FileText, X, AlertCircle } from 'lucide-react';
 import { Box, Text, Flex, IconButton } from '@radix-ui/themes';
 
 /**
@@ -23,6 +23,7 @@ export interface FormNodeData {
   customName?: string;
   fields?: FormField[];
   onDelete?: () => void;
+  validationErrors?: Array<{ id: string; message: string }>;
 }
 
 /**
@@ -38,6 +39,8 @@ export interface FormNodeProps {
  * Collects data from users through configurable fields
  */
 export const FormNode: React.FC<FormNodeProps> = ({ data, id }) => {
+  const hasErrors = data.validationErrors && data.validationErrors.length > 0;
+
   return (
     <Box
       px="4"
@@ -52,6 +55,21 @@ export const FormNode: React.FC<FormNodeProps> = ({ data, id }) => {
         minWidth: '150px',
       }}
     >
+      {/* Error indicator */}
+      {hasErrors && (
+        <Box
+          position="absolute"
+          style={{
+            top: '-8px',
+            left: '-8px',
+            width: '24px',
+            height: '24px',
+          }}
+        >
+          <AlertCircle fill="var(--red-9)" size={24} />
+        </Box>
+      )}
+
       {/* Delete button */}
       {data.onDelete && (
         <Box
@@ -72,13 +90,13 @@ export const FormNode: React.FC<FormNodeProps> = ({ data, id }) => {
             }}
             title="Delete node"
             style={{
-              width: '20px',
-              height: '20px',
+              width: '24px',
+              height: '24px',
               padding: 0,
               border: '2px solid white',
             }}
           >
-            <X size={12} />
+            <X size={14} />
           </IconButton>
         </Box>
       )}

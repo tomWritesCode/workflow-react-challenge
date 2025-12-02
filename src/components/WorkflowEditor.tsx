@@ -35,9 +35,10 @@ import { Save, X, Plus, Trash2, AlertCircle, Info } from 'lucide-react';
 import { StartNode } from './nodes/StartNode';
 import { FormNode, FormField } from './nodes/FormNode';
 import { ConditionalNode, ConditionalRoute, ConditionalOperator } from './nodes/ConditionalNode';
-import { ApiNode, HttpMethod } from './nodes/ApiNode';
+import { ApiNode } from './nodes/ApiNode';
 import { EndNode } from './nodes/EndNode';
 import { BlockPanel } from './BlockPanel';
+import { validateWorkflow, ValidationError } from '../utils/validation';
 
 import type { FormNodeData } from './nodes/FormNode';
 import type { ApiNodeData } from './nodes/ApiNode';
@@ -56,8 +57,7 @@ const nodeTypes = {
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
 
-let nodeId = 0;
-const getId = () => `node_${nodeId++}`;
+const getId = () => `node_${crypto.randomUUID()}`;
 
 const getBlockConfig = (blockType: string): WorkflowNodeData => {
   const configs: Record<string, WorkflowNodeData> = {
@@ -103,16 +103,6 @@ export type WorkflowNodeData =
   | EndNodeData;
 
 /**
- * Validation error structure
- */
-export interface ValidationError {
-  id: string;
-  type: 'error';
-  message: string;
-  nodeId?: string;
-}
-
-/**
  * WorkflowEditor - Main component for building and editing workflows
  * Provides a visual canvas for creating workflows with nodes and connections
  */
@@ -120,41 +110,27 @@ export const WorkflowEditor: React.FC = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [workflowErrors, setWorkflowErrors] = useState<string[]>([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
 
-  // Static validation errors for demonstration
-  const validationErrors: ValidationError[] = [
-    {
-      id: '1',
-      type: 'error',
-      message: 'Workflow must have exactly one Start block',
-      nodeId: undefined,
-    },
-    {
-      id: '2',
-      type: 'error',
-      message: 'Form block "User Info" has no fields configured',
-      nodeId: 'node_1',
-    },
-    {
-      id: '3',
-      type: 'error',
-      message: 'Conditional block has no connections',
-      nodeId: 'node_2',
-    },
-  ];
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      const result = validateWorkflow(nodes, edges);
+      setValidationErrors(result.errors);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [nodes, edges]);
 
   const onConnect = useCallback(
     (params: Connection) => {
-      // Get the source node to check if it's a conditional node
       const sourceNode = nodes.find((n) => n.id === params.source);
 
       let label = '';
       if (sourceNode?.type === 'conditional' && params.sourceHandle) {
-        const conditionalData = sourceNode.data as ConditionalNodeData;
-        // Find the route label for this handle
+        const conditionalData = sourceNode.data as unknown as ConditionalNodeData;
         const route = conditionalData.routes?.find((r) => r.id === params.sourceHandle);
         label = route?.label || params.sourceHandle || '';
       }
@@ -165,12 +141,31 @@ export const WorkflowEditor: React.FC = () => {
   );
 
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    // Don't open editor for start and end nodes
+    setSelectedEdge(null);
+
     if (node.type === 'start' || node.type === 'end') {
       return;
     }
     setSelectedNode(node);
   }, []);
+
+  const onEdgeClick = useCallback((_event: React.MouseEvent, edge: Edge) => {
+    setSelectedEdge(edge);
+    setSelectedNode(null);
+  }, []);
+
+  const onPaneClick = useCallback(() => {
+    setSelectedNode(null);
+    setSelectedEdge(null);
+  }, []);
+
+  const deleteEdge = useCallback(
+    (edgeId: string) => {
+      setEdges((eds) => eds.filter((edge) => edge.id !== edgeId));
+      setSelectedEdge(null);
+    },
+    [setEdges]
+  );
 
   const updateNodeData = useCallback(
     (nodeId: string, newData: Partial<WorkflowNodeData>) => {
@@ -183,9 +178,50 @@ export const WorkflowEditor: React.FC = () => {
     [setNodes]
   );
 
+  useEffect(() => {
+    setNodes((nds) =>
+      nds.map((node) => {
+        const nodeErrors = validationErrors.filter((err) => err.nodeId === node.id);
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            validationErrors: nodeErrors,
+          },
+        };
+      })
+    );
+  }, [validationErrors, setNodes]);
+
   const closeEditor = useCallback(() => {
     setSelectedNode(null);
   }, []);
+
+  // When clicking the error from the error panel we want to select the node and center the viewport on it
+  const handleErrorClick = useCallback(
+    (nodeId: string) => {
+      const node = nodes.find((n) => n.id === nodeId);
+      if (node) {
+        setNodes((nds) =>
+          nds.map((n) => ({
+            ...n,
+            selected: n.id === nodeId,
+          }))
+        );
+
+        if (reactFlowInstance.current) {
+          reactFlowInstance.current.setCenter(node.position.x + 75, node.position.y + 50, {
+            duration: 400,
+          });
+        }
+
+        if (node.type !== 'start' && node.type !== 'end') {
+          setSelectedNode(node);
+        }
+      }
+    },
+    [nodes, setNodes]
+  );
 
   const deleteNode = useCallback(
     (nodeId: string) => {
@@ -196,30 +232,36 @@ export const WorkflowEditor: React.FC = () => {
     [setNodes, setEdges]
   );
 
-  // Keyboard shortcuts for deleting selected node
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedNode) {
+      // Safeguard against deleting if user is typing in an input/textarea
+      const target = event.target as HTMLElement;
+      const isTyping =
+        target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      if ((event.key === 'Delete' || event.key === 'Backspace') && !isTyping) {
         // Prevent default behavior (like navigating back) when deleting
         event.preventDefault();
-        deleteNode(selectedNode.id);
+
+        if (selectedNode) {
+          deleteNode(selectedNode.id);
+        } else if (selectedEdge) {
+          deleteEdge(selectedEdge.id);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNode, deleteNode]);
+  }, [selectedNode, selectedEdge, deleteNode, deleteEdge]);
 
   const handleAddBlock = useCallback(
     (blockType: string) => {
       const config = getBlockConfig(blockType);
 
-      // Get viewport center position
-      let position = { x: 100, y: 100 }; // Default fallback
+      let position = { x: 100, y: 100 };
 
       if (reactFlowInstance.current) {
-        const viewport = reactFlowInstance.current.getViewport();
-        const zoom = viewport.zoom;
         const canvasCenter = {
           x: window.innerWidth / 2,
           y: window.innerHeight / 2,
@@ -296,27 +338,28 @@ export const WorkflowEditor: React.FC = () => {
         {/* Left Panels */}
         <Flex direction="column" gap="4">
           <BlockPanel onAddBlock={handleAddBlock} />
-          <ValidationPanel errors={validationErrors} />
+          <ValidationPanel errors={validationErrors} onErrorClick={handleErrorClick} />
         </Flex>
 
         {/* Workflow Canvas */}
         <Box flexGrow="1" style={{ minHeight: '600px' }}>
           <Card style={{ overflow: 'hidden', height: '100%' }}>
-            {workflowErrors.length > 0 && (
-              <Callout.Root color="red" size="1" mb="2">
-                <Callout.Icon>
-                  <AlertCircle />
-                </Callout.Icon>
-                <Callout.Text>Workflow Errors: {workflowErrors.join(', ')}</Callout.Text>
-              </Callout.Root>
-            )}
             <ReactFlow
               nodes={nodes}
-              edges={edges}
+              edges={edges.map((edge) => ({
+                ...edge,
+                selected: selectedEdge?.id === edge.id,
+                style:
+                  selectedEdge?.id === edge.id
+                    ? { strokeWidth: 3, stroke: '#3b82f6' }
+                    : { strokeWidth: 2, stroke: '#94a3b8' },
+              }))}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onNodeClick={onNodeClick}
+              onEdgeClick={onEdgeClick}
+              onPaneClick={onPaneClick}
               onInit={onInit}
               nodeTypes={nodeTypes}
               fitView
@@ -366,6 +409,7 @@ export const WorkflowEditor: React.FC = () => {
             onUpdate={updateNodeData}
             onClose={closeEditor}
             onDelete={deleteNode}
+            errors={validationErrors}
           />
         )}
       </Flex>
@@ -398,14 +442,33 @@ export interface NodeEditorProps {
   onUpdate: (nodeId: string, data: Partial<WorkflowNodeData>) => void;
   onClose: () => void;
   onDelete: (nodeId: string) => void;
+  errors?: ValidationError[];
 }
 
 /**
  * NodeEditor - Configuration panel for editing node properties
  * Displays different fields based on the node type
  */
-export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose, onDelete }) => {
-  const [formData, setFormData] = useState<WorkflowNodeData>(node.data as WorkflowNodeData);
+export const NodeEditor: React.FC<NodeEditorProps> = ({
+  node,
+  onUpdate,
+  onClose,
+  onDelete,
+  errors = [],
+}) => {
+  const [formData, setFormData] = useState<WorkflowNodeData>(
+    node.data as unknown as WorkflowNodeData
+  );
+
+  const nodeErrors = errors.filter((err) => err.nodeId === node.id);
+
+  const getFieldError = (fieldName: string) => {
+    return nodeErrors.find((err) => err.field === fieldName);
+  };
+
+  const getFormFieldError = (fieldId: string, fieldProp: 'name' | 'label') => {
+    return nodeErrors.find((err) => err.field?.includes(`field-${fieldId}-${fieldProp}`));
+  };
 
   const handleChange = (field: string, value: string | FormField[] | ConditionalRoute[]) => {
     const newData = { ...formData, [field]: value };
@@ -421,7 +484,8 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose,
       type: 'string' as const,
       required: false,
     };
-    const newFields = [...(formData.fields || []), newField];
+    const formNodeData = formData as FormNodeData;
+    const newFields = [...(formNodeData.fields || []), newField];
     handleChange('fields', newFields);
   };
 
@@ -509,6 +573,11 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose,
                 onChange={(e) => handleChange('customName', e.target.value)}
                 placeholder="Enter form name"
               />
+              {getFieldError('customName') && (
+                <Text size="1" color="red" mt="1">
+                  {getFieldError('customName').message}
+                </Text>
+              )}
             </Box>
 
             <Separator size="4" />
@@ -554,6 +623,11 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose,
                       onChange={(e) => updateField(field.id, 'name', e.target.value)}
                       placeholder="field_name"
                     />
+                    {getFormFieldError(field.id, 'name') && (
+                      <Text size="1" color="red" mt="1">
+                        {getFormFieldError(field.id, 'name').message}
+                      </Text>
+                    )}
                   </Box>
 
                   <Box>
@@ -566,10 +640,15 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose,
                       onChange={(e) => updateField(field.id, 'label', e.target.value)}
                       placeholder="Display Label"
                     />
+                    {getFormFieldError(field.id, 'label') && (
+                      <Text size="1" color="red" mt="1">
+                        {getFormFieldError(field.id, 'label').message}
+                      </Text>
+                    )}
                   </Box>
 
                   <Box>
-                    <Text size="1" mb="2">
+                    <Text size="1" mb="2" mr="2">
                       Type
                     </Text>
                     <Select.Root
@@ -641,8 +720,10 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose,
             {(!(formData as FormNodeData).fields ||
               (formData as FormNodeData).fields?.length === 0) && (
               <Box p="3">
-                <Text size="2" align="center" color="gray">
-                  No fields added yet
+                <Text size="2" align="center" color={getFieldError('fields') ? 'red' : 'gray'}>
+                  {getFieldError('fields')
+                    ? getFieldError('fields').message
+                    : 'No fields added yet'}
                 </Text>
               </Box>
             )}
@@ -660,9 +741,14 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose,
                 onChange={(e) => handleChange('url', e.target.value)}
                 placeholder="https://api.example.com"
               />
+              {getFieldError('url') && (
+                <Text size="1" color="red" mt="1">
+                  {getFieldError('url').message}
+                </Text>
+              )}
             </Box>
             <Box>
-              <Text size="2" weight="medium" mb="2">
+              <Text size="2" weight="medium" mb="2" mr="2">
                 Method
               </Text>
               <Select.Root
@@ -677,6 +763,11 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose,
                   <Select.Item value="DELETE">DELETE</Select.Item>
                 </Select.Content>
               </Select.Root>
+              {getFieldError('method') && (
+                <Text size="1" color="red" mt="1">
+                  {getFieldError('method').message}
+                </Text>
+              )}
             </Box>
           </Flex>
         )}
@@ -692,6 +783,11 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose,
                 onChange={(e) => handleChange('customName', e.target.value)}
                 placeholder="Enter condition name"
               />
+              {getFieldError('customName') && (
+                <Text size="1" color="red" mt="1">
+                  {getFieldError('customName').message}
+                </Text>
+              )}
             </Box>
             <Box>
               <Text size="2" weight="medium" mb="2">
@@ -702,9 +798,14 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose,
                 onChange={(e) => handleChange('fieldToEvaluate', e.target.value)}
                 placeholder="field_name"
               />
+              {getFieldError('fieldToEvaluate') && (
+                <Text size="1" color="red" mt="1">
+                  {getFieldError('fieldToEvaluate').message}
+                </Text>
+              )}
             </Box>
             <Box>
-              <Text size="2" weight="medium" mb="2">
+              <Text size="2" weight="medium" mb="2" mr="2">
                 Operator
               </Text>
               <Select.Root
@@ -721,6 +822,11 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose,
                   <Select.Item value="contains">Contains</Select.Item>
                 </Select.Content>
               </Select.Root>
+              {getFieldError('operator') && (
+                <Text size="1" color="red" mt="1">
+                  {getFieldError('operator').message}
+                </Text>
+              )}
             </Box>
             <Box>
               <Text size="2" weight="medium" mb="2">
@@ -731,6 +837,11 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose,
                 onChange={(e) => handleChange('value', e.target.value)}
                 placeholder="comparison value"
               />
+              {getFieldError('value') && (
+                <Text size="1" color="red" mt="1">
+                  {getFieldError('value').message}
+                </Text>
+              )}
             </Box>
 
             <Separator size="4" />
@@ -805,19 +916,28 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose,
  */
 export interface ValidationPanelProps {
   errors: ValidationError[];
+  onErrorClick?: (nodeId: string) => void;
 }
 
 /**
  * ValidationPanel - Displays workflow validation errors
  * Shows a list of errors that need to be fixed in the workflow
  */
-export const ValidationPanel: React.FC<ValidationPanelProps> = ({ errors }) => {
+export const ValidationPanel: React.FC<ValidationPanelProps> = ({ errors, onErrorClick }) => {
   const errorCount = errors.length;
 
   return (
-    <Card style={{ width: '256px', height: '100%' }}>
-      <Flex direction="column" gap="3" p="4">
-        <Flex justify="between" align="center">
+    <Card
+      style={{
+        width: '256px',
+        height: '100%',
+        maxHeight: '400px',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <Flex direction="column" gap="3" p="4" style={{ flex: 1, overflow: 'hidden' }}>
+        <Flex justify="between" align="center" style={{ flexShrink: 0 }}>
           <Heading size="3">Errors</Heading>
           {errorCount > 0 && (
             <Badge color="red" size="1">
@@ -826,7 +946,7 @@ export const ValidationPanel: React.FC<ValidationPanelProps> = ({ errors }) => {
           )}
         </Flex>
 
-        <Flex direction="column" gap="2">
+        <Flex direction="column" gap="2" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {errors.length === 0 ? (
             <Callout.Root color="green" size="1">
               <Callout.Icon>
@@ -836,21 +956,20 @@ export const ValidationPanel: React.FC<ValidationPanelProps> = ({ errors }) => {
             </Callout.Root>
           ) : (
             errors.map((error) => (
-              <Callout.Root key={error.id} color="red" size="1">
+              <Callout.Root
+                key={error.id}
+                color="red"
+                size="1"
+                style={{
+                  cursor: error.nodeId ? 'pointer' : 'default',
+                  flexShrink: 0,
+                }}
+                onClick={() => error.nodeId && onErrorClick?.(error.nodeId)}
+              >
                 <Callout.Icon>
                   <AlertCircle />
                 </Callout.Icon>
-                <Callout.Text>
-                  {error.message}
-                  {error.nodeId && (
-                    <>
-                      <br />
-                      <Text size="1" color="gray">
-                        Node: {error.nodeId}
-                      </Text>
-                    </>
-                  )}
-                </Callout.Text>
+                <Callout.Text>{error.message}</Callout.Text>
               </Callout.Root>
             ))
           )}
