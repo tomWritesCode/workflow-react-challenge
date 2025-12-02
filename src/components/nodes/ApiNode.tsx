@@ -1,6 +1,6 @@
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Globe, X } from 'lucide-react';
+import { Globe, X, AlertCircle } from 'lucide-react';
 import { Box, Text, Flex, IconButton } from '@radix-ui/themes';
 
 /**
@@ -18,6 +18,7 @@ export interface ApiNodeData {
   method?: HttpMethod;
   requestBody?: Record<string, string>;
   onDelete?: () => void;
+  validationErrors?: Array<{ id: string; message: string }>;
 }
 
 /**
@@ -33,6 +34,8 @@ export interface ApiNodeProps {
  * Makes external API requests and processes responses
  */
 export const ApiNode: React.FC<ApiNodeProps> = ({ data, id }) => {
+  const hasErrors = data.validationErrors && data.validationErrors.length > 0;
+
   return (
     <Box
       px="4"
@@ -47,6 +50,21 @@ export const ApiNode: React.FC<ApiNodeProps> = ({ data, id }) => {
         minWidth: '150px',
       }}
     >
+      {/* Error indicator */}
+      {hasErrors && (
+        <Box
+          position="absolute"
+          style={{
+            top: '-8px',
+            left: '-8px',
+            width: '20px',
+            height: '20px',
+          }}
+        >
+          <AlertCircle fill="var(--red-9)" size={20} />
+        </Box>
+      )}
+
       {/* Delete button */}
       {data.onDelete && (
         <Box
@@ -67,13 +85,13 @@ export const ApiNode: React.FC<ApiNodeProps> = ({ data, id }) => {
             }}
             title="Delete node"
             style={{
-              width: '20px',
-              height: '20px',
+              width: '24px',
+              height: '24px',
               padding: 0,
               border: '2px solid white',
             }}
           >
-            <X size={12} />
+            <X size={14} />
           </IconButton>
         </Box>
       )}

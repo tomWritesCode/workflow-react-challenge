@@ -1,6 +1,6 @@
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { GitBranch, X } from 'lucide-react';
+import { GitBranch, X, AlertCircle } from 'lucide-react';
 import { Box, Text, Flex, IconButton } from '@radix-ui/themes';
 
 /**
@@ -34,6 +34,7 @@ export interface ConditionalNodeData {
   value?: string;
   routes?: ConditionalRoute[];
   onDelete?: () => void;
+  validationErrors?: Array<{ id: string; message: string }>;
 }
 
 /**
@@ -49,6 +50,8 @@ export interface ConditionalNodeProps {
  * Evaluates a condition and routes to different paths based on the result
  */
 export const ConditionalNode: React.FC<ConditionalNodeProps> = ({ data, id }) => {
+  const hasErrors = data.validationErrors && data.validationErrors.length > 0;
+
   const trueRoute = data.routes?.find((r) => r.id === 'true') || {
     id: 'true' as const,
     label: 'True',
@@ -72,6 +75,21 @@ export const ConditionalNode: React.FC<ConditionalNodeProps> = ({ data, id }) =>
         minWidth: '180px',
       }}
     >
+      {/* Error indicator */}
+      {hasErrors && (
+        <Box
+          position="absolute"
+          style={{
+            top: '-8px',
+            left: '-8px',
+            width: '20px',
+            height: '20px',
+          }}
+        >
+          <AlertCircle fill="var(--red-9)" size={20} />
+        </Box>
+      )}
+
       {/* Delete button */}
       {data.onDelete && (
         <Box
@@ -92,13 +110,13 @@ export const ConditionalNode: React.FC<ConditionalNodeProps> = ({ data, id }) =>
             }}
             title="Delete node"
             style={{
-              width: '20px',
-              height: '20px',
+              width: '24px',
+              height: '24px',
               padding: 0,
               border: '2px solid white',
             }}
           >
-            <X size={12} />
+            <X size={14} />
           </IconButton>
         </Box>
       )}
