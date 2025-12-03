@@ -30,6 +30,37 @@ export interface UseAutoSaveReturn {
 const AUTOSAVE_KEY = 'workflow-autosave';
 const DEBOUNCE_DELAY = 2000;
 
+function areWorkflowsEqual(
+  nodes1: Node[],
+  edges1: Edge[],
+  nodes2: Node[],
+  edges2: Edge[]
+): boolean {
+  if (nodes1.length !== nodes2.length || edges1.length !== edges2.length) {
+    return false;
+  }
+
+  const serialize = (nodes: Node[], edges: Edge[]) =>
+    JSON.stringify({
+      nodes: nodes.map(({ id, type, position, data }) => ({
+        id,
+        type,
+        position,
+        data: Object.fromEntries(Object.entries(data).filter(([_, v]) => typeof v !== 'function')),
+      })),
+      edges: edges.map(({ id, source, target, sourceHandle, targetHandle, label }) => ({
+        id,
+        source,
+        target,
+        sourceHandle,
+        targetHandle,
+        label,
+      })),
+    });
+
+  return serialize(nodes1, edges1) === serialize(nodes2, edges2);
+}
+
 export function useAutoSave({ nodes, edges, isValid }: UseAutoSaveParams): UseAutoSaveReturn {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -49,6 +80,16 @@ export function useAutoSave({ nodes, edges, isValid }: UseAutoSaveParams): UseAu
 
     if (!isValid) {
       setSaveStatus('error');
+      return;
+    }
+
+    const existingSaved = loadSavedWorkflow();
+    if (
+      existingSaved &&
+      areWorkflowsEqual(nodes, edges, existingSaved.nodes, existingSaved.edges)
+    ) {
+      setSaveStatus('saved');
+      setLastSaved(new Date(existingSaved.timestamp));
       return;
     }
 
@@ -76,7 +117,7 @@ export function useAutoSave({ nodes, edges, isValid }: UseAutoSaveParams): UseAu
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [isValid]);
+  }, [nodes, edges, isValid]);
 
   const clearSaved = useCallback(() => {
     try {
