@@ -419,7 +419,7 @@ export const WorkflowEditor: React.FC = () => {
                 width: '100%',
                 height: '100%',
                 backgroundColor: '#f8fafc',
-                borderRadius: 'var(--radius)',
+                borderRadius: 'var(--radius-3)',
               }}
             >
               <Controls
@@ -452,7 +452,10 @@ export const WorkflowEditor: React.FC = () => {
         {/* Right Panel - Node Editor */}
         {selectedNode && (
           <NodeEditor
+            key={selectedNode.id}
             node={selectedNode}
+            nodes={nodes}
+            edges={edges}
             onUpdate={updateNodeData}
             onClose={closeEditor}
             onDelete={deleteNode}
@@ -494,6 +497,8 @@ export const WorkflowEditor: React.FC = () => {
  */
 export interface NodeEditorProps {
   node: Node;
+  nodes: Node[];
+  edges: Edge[];
   onUpdate: (nodeId: string, data: Partial<WorkflowNodeData>) => void;
   onClose: () => void;
   onDelete: (nodeId: string) => void;
@@ -506,6 +511,8 @@ export interface NodeEditorProps {
  */
 export const NodeEditor: React.FC<NodeEditorProps> = ({
   node,
+  nodes,
+  edges,
   onUpdate,
   onClose,
   onDelete,
