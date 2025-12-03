@@ -349,12 +349,19 @@ export const WorkflowEditor: React.FC = () => {
 
   const handleRestoreWorkflow = useCallback(() => {
     if (savedWorkflowData) {
-      setNodes(savedWorkflowData.nodes);
+      const nodesWithCallbacks = savedWorkflowData.nodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          onDelete: () => deleteNode(node.id),
+        },
+      }));
+      setNodes(nodesWithCallbacks);
       setEdges(savedWorkflowData.edges);
       setShowRestoreDialog(false);
       setSavedWorkflowData(null);
     }
-  }, [savedWorkflowData, setNodes, setEdges]);
+  }, [savedWorkflowData, setNodes, setEdges, deleteNode]);
 
   const handleDiscardWorkflow = useCallback(() => {
     clearSaved();

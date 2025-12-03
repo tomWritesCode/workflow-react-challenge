@@ -22,9 +22,13 @@ export const AutoComplete: React.FC<AutoCompleteProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const filteredSuggestions = suggestions.filter(
-    (suggestion) => suggestion.toLowerCase().includes(value.toLowerCase()) && suggestion !== value
-  );
+  const filteredSuggestions =
+    value.trim() === ''
+      ? suggestions
+      : suggestions.filter(
+          (suggestion) =>
+            suggestion.toLowerCase().includes(value.toLowerCase()) && suggestion !== value
+        );
 
   const hasSuggestions = filteredSuggestions.length > 0;
 
@@ -40,7 +44,7 @@ export const AutoComplete: React.FC<AutoCompleteProps> = ({
   };
 
   const handleInputFocus = () => {
-    if (hasSuggestions) {
+    if (suggestions.length > 0) {
       setIsOpen(true);
     }
   };
