@@ -42,6 +42,8 @@ import { validateWorkflow, ValidationError } from '../utils/validation';
 import { useAutoSave, loadSavedWorkflow } from '../hooks/useAutoSave';
 import { SaveStatusIndicator } from './SaveStatusIndicator';
 import { RestoreWorkflowDialog } from './RestoreWorkflowDialog';
+import { getReachableFields } from '../utils/getReachableFields';
+import { AutoComplete } from './AutoComplete';
 
 import type { FormNodeData } from './nodes/FormNode';
 import type { ApiNodeData } from './nodes/ApiNode';
@@ -347,12 +349,19 @@ export const WorkflowEditor: React.FC = () => {
 
   const handleRestoreWorkflow = useCallback(() => {
     if (savedWorkflowData) {
-      setNodes(savedWorkflowData.nodes);
+      const nodesWithCallbacks = savedWorkflowData.nodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          onDelete: () => deleteNode(node.id),
+        },
+      }));
+      setNodes(nodesWithCallbacks);
       setEdges(savedWorkflowData.edges);
       setShowRestoreDialog(false);
       setSavedWorkflowData(null);
     }
-  }, [savedWorkflowData, setNodes, setEdges]);
+  }, [savedWorkflowData, setNodes, setEdges, deleteNode]);
 
   const handleDiscardWorkflow = useCallback(() => {
     clearSaved();
@@ -417,7 +426,7 @@ export const WorkflowEditor: React.FC = () => {
                 width: '100%',
                 height: '100%',
                 backgroundColor: '#f8fafc',
-                borderRadius: 'var(--radius)',
+                borderRadius: 'var(--radius-3)',
               }}
             >
               <Controls
@@ -450,7 +459,10 @@ export const WorkflowEditor: React.FC = () => {
         {/* Right Panel - Node Editor */}
         {selectedNode && (
           <NodeEditor
+            key={selectedNode.id}
             node={selectedNode}
+            nodes={nodes}
+            edges={edges}
             onUpdate={updateNodeData}
             onClose={closeEditor}
             onDelete={deleteNode}
@@ -492,6 +504,8 @@ export const WorkflowEditor: React.FC = () => {
  */
 export interface NodeEditorProps {
   node: Node;
+  nodes: Node[];
+  edges: Edge[];
   onUpdate: (nodeId: string, data: Partial<WorkflowNodeData>) => void;
   onClose: () => void;
   onDelete: (nodeId: string) => void;
@@ -504,6 +518,8 @@ export interface NodeEditorProps {
  */
 export const NodeEditor: React.FC<NodeEditorProps> = ({
   node,
+  nodes,
+  edges,
   onUpdate,
   onClose,
   onDelete,
@@ -846,16 +862,13 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
               <Text size="2" weight="medium" mb="2">
                 Field to Evaluate
               </Text>
-              <TextField.Root
+              <AutoComplete
                 value={(formData as ConditionalNodeData).fieldToEvaluate || ''}
-                onChange={(e) => handleChange('fieldToEvaluate', e.target.value)}
+                onChange={(val) => handleChange('fieldToEvaluate', val)}
+                suggestions={getReachableFields(node.id, nodes, edges)}
                 placeholder="field_name"
+                error={getFieldError('fieldToEvaluate')?.message}
               />
-              {getFieldError('fieldToEvaluate') && (
-                <Text size="1" color="red" mt="1">
-                  {getFieldError('fieldToEvaluate').message}
-                </Text>
-              )}
             </Box>
             <Box>
               <Text size="2" weight="medium" mb="2" mr="2">

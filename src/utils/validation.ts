@@ -82,7 +82,7 @@ export function validateFormNode(node: Node): ValidationError[] {
           type: 'error',
           message: `Field ${index + 1}: Name is required`,
           nodeId: node.id,
-          field: `fields[${index}].name`,
+          field: `field-${field.id}-name`,
         });
       } else if (!isAlphanumeric(field.name)) {
         errors.push({
@@ -90,7 +90,7 @@ export function validateFormNode(node: Node): ValidationError[] {
           type: 'error',
           message: `Field ${index + 1}: Name must be alphanumeric (no spaces)`,
           nodeId: node.id,
-          field: `fields[${index}].name`,
+          field: `field-${field.id}-name`,
         });
       } else if (!meetsMinLength(field.name, 2)) {
         errors.push({
@@ -98,7 +98,7 @@ export function validateFormNode(node: Node): ValidationError[] {
           type: 'error',
           message: `Field ${index + 1}: Name must be at least 2 characters`,
           nodeId: node.id,
-          field: `fields[${index}].name`,
+          field: `field-${field.id}-name`,
         });
       }
 
@@ -109,7 +109,7 @@ export function validateFormNode(node: Node): ValidationError[] {
           type: 'error',
           message: `Field ${index + 1}: Label is required`,
           nodeId: node.id,
-          field: `fields[${index}].label`,
+          field: `field-${field.id}-label`,
         });
       } else if (!meetsMinLength(field.label, 2)) {
         errors.push({
@@ -117,7 +117,7 @@ export function validateFormNode(node: Node): ValidationError[] {
           type: 'error',
           message: `Field ${index + 1}: Label must be at least 2 characters`,
           nodeId: node.id,
-          field: `fields[${index}].label`,
+          field: `field-${field.id}-label`,
         });
       }
     });
