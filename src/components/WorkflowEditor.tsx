@@ -42,6 +42,8 @@ import { validateWorkflow, ValidationError } from '../utils/validation';
 import { useAutoSave, loadSavedWorkflow } from '../hooks/useAutoSave';
 import { SaveStatusIndicator } from './SaveStatusIndicator';
 import { RestoreWorkflowDialog } from './RestoreWorkflowDialog';
+import { getReachableFields } from '../utils/getReachableFields';
+import { AutoComplete } from './AutoComplete';
 
 import type { FormNodeData } from './nodes/FormNode';
 import type { ApiNodeData } from './nodes/ApiNode';
@@ -846,16 +848,13 @@ export const NodeEditor: React.FC<NodeEditorProps> = ({
               <Text size="2" weight="medium" mb="2">
                 Field to Evaluate
               </Text>
-              <TextField.Root
+              <AutoComplete
                 value={(formData as ConditionalNodeData).fieldToEvaluate || ''}
-                onChange={(e) => handleChange('fieldToEvaluate', e.target.value)}
+                onChange={(val) => handleChange('fieldToEvaluate', val)}
+                suggestions={getReachableFields(node.id, nodes, edges)}
                 placeholder="field_name"
+                error={getFieldError('fieldToEvaluate')?.message}
               />
-              {getFieldError('fieldToEvaluate') && (
-                <Text size="1" color="red" mt="1">
-                  {getFieldError('fieldToEvaluate').message}
-                </Text>
-              )}
             </Box>
             <Box>
               <Text size="2" weight="medium" mb="2" mr="2">
