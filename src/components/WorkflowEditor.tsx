@@ -124,7 +124,6 @@ export const WorkflowEditor: React.FC = () => {
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
 
-  // Debounced validation of workflow nodes and edges
   const { errors: validationErrors, isValid: isWorkflowValid } = useDebouncedValidation(
     nodes,
     edges
@@ -252,7 +251,6 @@ export const WorkflowEditor: React.FC = () => {
     [setNodes, setEdges]
   );
 
-  // Keyboard shortcuts for deleting selected nodes/edges
   useKeyboardShortcuts({
     selectedNode,
     selectedEdge,
