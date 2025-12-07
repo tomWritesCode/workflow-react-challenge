@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -38,8 +38,10 @@ import { ConditionalNode, ConditionalRoute, ConditionalOperator } from './nodes/
 import { ApiNode } from './nodes/ApiNode';
 import { EndNode } from './nodes/EndNode';
 import { BlockPanel } from './BlockPanel';
-import { validateWorkflow, ValidationError } from '../utils/validation';
+import { ValidationError } from '../utils/validation';
 import { useAutoSave, loadSavedWorkflow } from '../hooks/useAutoSave';
+import { useDebouncedValidation } from '../hooks/useDebouncedValidation';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { SaveStatusIndicator } from './SaveStatusIndicator';
 import { RestoreWorkflowDialog } from './RestoreWorkflowDialog';
 import { getReachableFields } from '../utils/getReachableFields';
@@ -120,9 +122,13 @@ export const WorkflowEditor: React.FC = () => {
     useState<ReturnType<typeof loadSavedWorkflow>>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
-  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
-  const [isWorkflowValid, setIsWorkflowValid] = useState(false);
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
+
+  // Debounced validation of workflow nodes and edges
+  const { errors: validationErrors, isValid: isWorkflowValid } = useDebouncedValidation(
+    nodes,
+    edges
+  );
 
   useEffect(() => {
     const saved = loadSavedWorkflow();
@@ -131,19 +137,6 @@ export const WorkflowEditor: React.FC = () => {
       setShowRestoreDialog(true);
     }
   }, []);
-
-  const nodesJson = useMemo(() => JSON.stringify(nodes), [nodes]);
-  const edgesJson = useMemo(() => JSON.stringify(edges), [edges]);
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      const result = validateWorkflow(nodes, edges);
-      setValidationErrors(result.errors);
-      setIsWorkflowValid(result.isValid);
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [nodesJson, edgesJson]);
 
   const { saveStatus, lastSaved, clearSaved } = useAutoSave({
     nodes,
@@ -259,28 +252,13 @@ export const WorkflowEditor: React.FC = () => {
     [setNodes, setEdges]
   );
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Safeguard against deleting if user is typing in an input/textarea
-      const target = event.target as HTMLElement;
-      const isTyping =
-        target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
-
-      if ((event.key === 'Delete' || event.key === 'Backspace') && !isTyping) {
-        // Prevent default behavior (like navigating back) when deleting
-        event.preventDefault();
-
-        if (selectedNode) {
-          deleteNode(selectedNode.id);
-        } else if (selectedEdge) {
-          deleteEdge(selectedEdge.id);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNode, selectedEdge, deleteNode, deleteEdge]);
+  // Keyboard shortcuts for deleting selected nodes/edges
+  useKeyboardShortcuts({
+    selectedNode,
+    selectedEdge,
+    onDeleteNode: deleteNode,
+    onDeleteEdge: deleteEdge,
+  });
 
   const handleAddBlock = useCallback(
     (blockType: string) => {
