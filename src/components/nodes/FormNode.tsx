@@ -2,6 +2,7 @@ import React from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { FileText, X, AlertCircle } from 'lucide-react';
 import { Box, Text, Flex, IconButton } from '@radix-ui/themes';
+import { useValidation } from '../../context/ValidationContext';
 
 /**
  * Represents a single field in a form
@@ -23,7 +24,6 @@ export interface FormNodeData {
   customName?: string;
   fields?: FormField[];
   onDelete?: () => void;
-  validationErrors?: Array<{ id: string; message: string }>;
 }
 
 /**
@@ -39,7 +39,9 @@ export interface FormNodeProps {
  * Collects data from users through configurable fields
  */
 export const FormNode: React.FC<FormNodeProps> = ({ data, id }) => {
-  const hasErrors = data.validationErrors && data.validationErrors.length > 0;
+  const { getErrorsForNode } = useValidation();
+  const nodeErrors = getErrorsForNode(id);
+  const hasErrors = nodeErrors.length > 0;
 
   return (
     <Box
