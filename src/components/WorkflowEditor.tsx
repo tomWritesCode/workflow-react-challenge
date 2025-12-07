@@ -44,6 +44,7 @@ import { SaveStatusIndicator } from './SaveStatusIndicator';
 import { RestoreWorkflowDialog } from './RestoreWorkflowDialog';
 import { getReachableFields } from '../utils/getReachableFields';
 import { AutoComplete } from './AutoComplete';
+import { ValidationProvider } from '../context/ValidationContext';
 
 import type { FormNodeData } from './nodes/FormNode';
 import type { ApiNodeData } from './nodes/ApiNode';
@@ -204,21 +205,6 @@ export const WorkflowEditor: React.FC = () => {
     },
     [setNodes]
   );
-
-  useEffect(() => {
-    setNodes((nds) =>
-      nds.map((node) => {
-        const nodeErrors = validationErrors.filter((err) => err.nodeId === node.id);
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            validationErrors: nodeErrors,
-          },
-        };
-      })
-    );
-  }, [validationErrors, setNodes]);
 
   const closeEditor = useCallback(() => {
     setSelectedNode(null);
@@ -398,61 +384,63 @@ export const WorkflowEditor: React.FC = () => {
         {/* Workflow Canvas */}
         <Box flexGrow="1" style={{ minHeight: '600px' }}>
           <Card style={{ overflow: 'hidden', height: '100%' }}>
-            <ReactFlow
-              nodes={nodes}
-              edges={edges.map((edge) => ({
-                ...edge,
-                selected: selectedEdge?.id === edge.id,
-                style:
-                  selectedEdge?.id === edge.id
-                    ? { strokeWidth: 3, stroke: '#3b82f6' }
-                    : { strokeWidth: 2, stroke: '#94a3b8' },
-              }))}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              onNodeClick={onNodeClick}
-              onEdgeClick={onEdgeClick}
-              onPaneClick={onPaneClick}
-              onInit={onInit}
-              nodeTypes={nodeTypes}
-              fitView
-              defaultEdgeOptions={{
-                style: { strokeWidth: 2, stroke: '#94a3b8' },
-                type: 'smoothstep',
-                animated: false,
-              }}
-              style={{
-                width: '100%',
-                height: '100%',
-                backgroundColor: '#f8fafc',
-                borderRadius: 'var(--radius-3)',
-              }}
-            >
-              <Controls
-                style={{ backgroundColor: 'white', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-              />
-              <MiniMap
-                style={{ backgroundColor: 'white', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                nodeColor={(node) => {
-                  switch (node.type) {
-                    case 'start':
-                      return '#10b981';
-                    case 'form':
-                      return '#3b82f6';
-                    case 'conditional':
-                      return '#f59e0b';
-                    case 'api':
-                      return '#a855f7';
-                    case 'end':
-                      return '#ef4444';
-                    default:
-                      return '#6b7280';
-                  }
+            <ValidationProvider errors={validationErrors}>
+              <ReactFlow
+                nodes={nodes}
+                edges={edges.map((edge) => ({
+                  ...edge,
+                  selected: selectedEdge?.id === edge.id,
+                  style:
+                    selectedEdge?.id === edge.id
+                      ? { strokeWidth: 3, stroke: '#3b82f6' }
+                      : { strokeWidth: 2, stroke: '#94a3b8' },
+                }))}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onNodeClick={onNodeClick}
+                onEdgeClick={onEdgeClick}
+                onPaneClick={onPaneClick}
+                onInit={onInit}
+                nodeTypes={nodeTypes}
+                fitView
+                defaultEdgeOptions={{
+                  style: { strokeWidth: 2, stroke: '#94a3b8' },
+                  type: 'smoothstep',
+                  animated: false,
                 }}
-              />
-              <Background color="#e2e8f0" gap={20} />
-            </ReactFlow>
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  backgroundColor: '#f8fafc',
+                  borderRadius: 'var(--radius-3)',
+                }}
+              >
+                <Controls
+                  style={{ backgroundColor: 'white', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <MiniMap
+                  style={{ backgroundColor: 'white', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  nodeColor={(node) => {
+                    switch (node.type) {
+                      case 'start':
+                        return '#10b981';
+                      case 'form':
+                        return '#3b82f6';
+                      case 'conditional':
+                        return '#f59e0b';
+                      case 'api':
+                        return '#a855f7';
+                      case 'end':
+                        return '#ef4444';
+                      default:
+                        return '#6b7280';
+                    }
+                  }}
+                />
+                <Background color="#e2e8f0" gap={20} />
+              </ReactFlow>
+            </ValidationProvider>
           </Card>
         </Box>
 

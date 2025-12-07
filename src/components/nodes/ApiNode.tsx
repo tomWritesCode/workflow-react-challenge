@@ -2,6 +2,7 @@ import React from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { Globe, X, AlertCircle } from 'lucide-react';
 import { Box, Text, Flex, IconButton } from '@radix-ui/themes';
+import { useValidation } from '../../context/ValidationContext';
 
 /**
  * HTTP methods supported by the API node
@@ -18,7 +19,6 @@ export interface ApiNodeData {
   method?: HttpMethod;
   requestBody?: Record<string, string>;
   onDelete?: () => void;
-  validationErrors?: Array<{ id: string; message: string }>;
 }
 
 /**
@@ -34,7 +34,9 @@ export interface ApiNodeProps {
  * Makes external API requests and processes responses
  */
 export const ApiNode: React.FC<ApiNodeProps> = ({ data, id }) => {
-  const hasErrors = data.validationErrors && data.validationErrors.length > 0;
+  const { getErrorsForNode } = useValidation();
+  const nodeErrors = getErrorsForNode(id);
+  const hasErrors = nodeErrors.length > 0;
 
   return (
     <Box
