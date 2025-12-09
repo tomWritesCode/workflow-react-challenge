@@ -1,12 +1,6 @@
-import React, { createContext, useContext, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { ValidationError } from '../utils/validation';
-
-interface ValidationContextValue {
-  errors: ValidationError[];
-  getErrorsForNode: (nodeId: string) => ValidationError[];
-}
-
-const ValidationContext = createContext<ValidationContextValue | null>(null);
+import { ValidationContext } from './validationContextDef';
 
 interface ValidationProviderProps {
   errors: ValidationError[];
@@ -28,12 +22,4 @@ export const ValidationProvider: React.FC<ValidationProviderProps> = ({ errors, 
   );
 
   return <ValidationContext.Provider value={value}>{children}</ValidationContext.Provider>;
-};
-
-export const useValidation = (): ValidationContextValue => {
-  const context = useContext(ValidationContext);
-  if (!context) {
-    throw new Error('useValidation must be used within a ValidationProvider');
-  }
-  return context;
 };
