@@ -2,7 +2,7 @@ import React from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { FileText, X, AlertCircle } from 'lucide-react';
 import { Box, Text, Flex, IconButton } from '@radix-ui/themes';
-import { useValidation } from '../../context/ValidationContext';
+import { useValidation } from '../../hooks/useValidation';
 
 /**
  * Represents a single field in a form

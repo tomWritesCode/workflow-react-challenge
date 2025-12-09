@@ -2,7 +2,7 @@ import React from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { Globe, X, AlertCircle } from 'lucide-react';
 import { Box, Text, Flex, IconButton } from '@radix-ui/themes';
-import { useValidation } from '../../context/ValidationContext';
+import { useValidation } from '../../hooks/useValidation';
 
 /**
  * HTTP methods supported by the API node
