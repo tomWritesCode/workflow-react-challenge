@@ -5,7 +5,7 @@ import type { SavedWorkflowData } from './useAutoSave';
 describe('useAutoSave - Core behavior', () => {
   const AUTOSAVE_KEY = 'workflow-autosave';
 
-  const mockStorage = (() => {
+  const mockStorage: Storage = (() => {
     let store: Record<string, string> = {};
     return {
       getItem: (key: string) => store[key] || null,
@@ -18,12 +18,16 @@ describe('useAutoSave - Core behavior', () => {
       clear: () => {
         store = {};
       },
+      key: (index: number) => Object.keys(store)[index] || null,
+      get length() {
+        return Object.keys(store).length;
+      },
     };
   })();
 
   beforeEach(() => {
     mockStorage.clear();
-    global.localStorage = mockStorage as any;
+    global.localStorage = mockStorage;
   });
 
   it('CRITICAL: should reject invalid data (missing required fields)', () => {

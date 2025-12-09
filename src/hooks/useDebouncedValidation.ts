@@ -8,9 +8,6 @@ export interface UseDebouncedValidationReturn {
 }
 
 /**
- * Custom hook that performs debounced validation of workflow nodes and edges.
- * Uses JSON serialization internally for stable dependency tracking.
- *
  * @param nodes - Array of workflow nodes to validate
  * @param edges - Array of workflow edges to validate
  * @param delay - Debounce delay in milliseconds (default: 300ms)
@@ -36,8 +33,9 @@ export function useDebouncedValidation(
     }, delay);
 
     return () => clearTimeout(timeoutId);
+    // deps of nodes and edges will cause a constant recalling of the effect
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodesJson, edgesJson, delay]);
 
   return { errors, isValid };
 }
-
